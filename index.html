@@ -19,8 +19,14 @@
     <header class="topbar">
         <img class="topbar__logo" src="src/assets/logo.svg" alt="GTPO" />
         <span class="tier-chip" data-tier-chip></span>
-        <button class="lang-btn" type="button" data-lang-btn aria-label="Language">RU</button>
+        <button class="lang-btn" type="button" data-lang-btn aria-haspopup="menu" aria-expanded="false" aria-label="Language">
+            <span class="flag" data-lang-btn-flag></span>
+            <span data-lang-btn-code>RU</span>
+            <svg class="lang-btn__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
+        </button>
+        <div class="lang-menu" data-lang-menu role="menu" hidden></div>
     </header>
+    <div class="lang-backdrop" data-lang-backdrop hidden></div>
 
     <main class="views">
         <!-- ============ Главная ============ -->

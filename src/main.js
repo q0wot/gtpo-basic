@@ -18,10 +18,34 @@ const API_BASE = (CONFIG.apiBase || (location.pathname.startsWith("/app/") ? loc
 
 const LANGS = ["ru", "en", "es", "hi"];
 
+// Названия языков на самих языках + подпись по-английски
+const LANG_META = {
+    ru: { name: "Русский", sub: "Russian" },
+    en: { name: "English", sub: "English" },
+    es: { name: "Español", sub: "Spanish" },
+    hi: { name: "हिन्दी", sub: "Hindi" },
+};
+
+// Флаги в SVG: эмодзи-флаги не отображаются в Telegram для Windows
+const FLAGS = {
+    ru: '<svg viewBox="0 0 30 30"><rect width="30" height="10" fill="#fff"/><rect y="10" width="30" height="10" fill="#1C57A7"/><rect y="20" width="30" height="10" fill="#D52B1E"/></svg>',
+    en: '<svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#012169"/><path d="M0 0L60 60M60 0L0 60" stroke="#fff" stroke-width="12"/><path d="M0 0L60 60M60 0L0 60" stroke="#C8102E" stroke-width="5"/><path d="M30 0V60M0 30H60" stroke="#fff" stroke-width="18"/><path d="M30 0V60M0 30H60" stroke="#C8102E" stroke-width="10"/></svg>',
+    es: '<svg viewBox="0 0 30 30"><rect width="30" height="30" fill="#AA151B"/><rect y="8" width="30" height="14" fill="#F1BF00"/></svg>',
+    hi: '<svg viewBox="0 0 30 30"><rect width="30" height="10" fill="#FF9933"/><rect y="10" width="30" height="10" fill="#fff"/><rect y="20" width="30" height="10" fill="#138808"/><circle cx="15" cy="15" r="3.6" fill="none" stroke="#000080" stroke-width="1.1"/><circle cx="15" cy="15" r="0.9" fill="#000080"/></svg>',
+};
+
+function flagEl(code) {
+    const span = document.createElement("span");
+    span.className = "flag";
+    span.innerHTML = FLAGS[code] || "";  // статичные SVG из кода, не пользовательские данные
+    return span;
+}
+
 /* ---------------------------------------------------------------- тексты */
 
 const I18N = {
     ru: {
+        langMenu: "Язык приложения",
         tabs: { home: "Главная", signal: "Сигнал", journal: "Журнал", top: "TOP" },
         tier: { basic: "Basic", vip: "VIP" },
         hello: (n) => (n ? `Привет, ${n}` : "Привет"),
@@ -116,6 +140,7 @@ const I18N = {
     },
 
     en: {
+        langMenu: "App language",
         tabs: { home: "Home", signal: "Signal", journal: "Journal", top: "TOP" },
         tier: { basic: "Basic", vip: "VIP" },
         hello: (n) => (n ? `Hi, ${n}` : "Hi there"),
@@ -210,6 +235,7 @@ const I18N = {
     },
 
     es: {
+        langMenu: "Idioma de la app",
         tabs: { home: "Inicio", signal: "Señal", journal: "Diario", top: "TOP" },
         tier: { basic: "Basic", vip: "VIP" },
         hello: (n) => (n ? `Hola, ${n}` : "Hola"),
@@ -304,6 +330,7 @@ const I18N = {
     },
 
     hi: {
+        langMenu: "ऐप की भाषा",
         tabs: { home: "होम", signal: "सिग्नल", journal: "जर्नल", top: "TOP" },
         tier: { basic: "Basic", vip: "VIP" },
         hello: (n) => (n ? `नमस्ते, ${n}` : "नमस्ते"),
@@ -827,6 +854,7 @@ let currentView = "home";
 
 function showView(name) {
     while (openSheets.length) closeTopSheet();
+    closeLangMenu();
     currentView = name;
     $$("[data-view]").forEach((v) => v.classList.toggle("is-active", v.dataset.view === name));
     $$("[data-tab]").forEach((b) => {
@@ -877,7 +905,8 @@ function renderChrome() {
         const v = T(node.dataset.i18n);
         if (typeof v === "string") node.textContent = v;
     });
-    $("[data-lang-btn]").textContent = lang.toUpperCase();
+    $("[data-lang-btn-code]").textContent = lang.toUpperCase();
+    $("[data-lang-btn-flag]").innerHTML = FLAGS[lang];
 
     const chip = $("[data-tier-chip]");
     chip.textContent = T(IS_VIP ? "tier.vip" : "tier.basic");
@@ -887,6 +916,55 @@ function renderChrome() {
     $("[data-hello]").textContent = T("hello")(name);
     $("[data-top-lead]").textContent = T("top.lead")(5);
     $("[data-picker-search]").placeholder = T("picker.search");
+}
+
+/* ---------------------------------------------------------------- меню языков */
+
+function renderLangMenu() {
+    const menu = $("[data-lang-menu]");
+    menu.replaceChildren(el("p", "lang-menu__title", T("langMenu")));
+    LANGS.forEach((code) => {
+        const item = el("button", "lang-item" + (code === lang ? " is-active" : ""));
+        item.type = "button";
+        item.setAttribute("role", "menuitemradio");
+        item.setAttribute("aria-checked", String(code === lang));
+        const text = el("span");
+        text.append(el("span", "lang-item__name", LANG_META[code].name),
+            el("span", "lang-item__sub", LANG_META[code].sub));
+        item.append(flagEl(code), text);
+        if (code === lang) {
+            const check = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            check.setAttribute("viewBox", "0 0 24 24");
+            check.setAttribute("class", "lang-item__check");
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", "M5 12.5l4.5 4.5L19 7.5");
+            check.append(path);
+            item.append(check);
+        } else {
+            item.append(el("span"));
+        }
+        item.addEventListener("click", () => {
+            haptic("select");
+            closeLangMenu();
+            if (code !== lang) setLang(code);
+        });
+        menu.append(item);
+    });
+}
+
+function openLangMenu() {
+    renderLangMenu();
+    $("[data-lang-menu]").hidden = false;
+    $("[data-lang-backdrop]").hidden = false;
+    $("[data-lang-btn]").setAttribute("aria-expanded", "true");
+    const active = $(".lang-item.is-active");
+    if (active) active.focus({ preventScroll: true });
+}
+
+function closeLangMenu() {
+    $("[data-lang-menu]").hidden = true;
+    $("[data-lang-backdrop]").hidden = true;
+    $("[data-lang-btn]").setAttribute("aria-expanded", "false");
 }
 
 function setLang(next) {
@@ -1408,8 +1486,10 @@ function bindEvents() {
 
     $("[data-lang-btn]").addEventListener("click", () => {
         haptic("select");
-        setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]);
+        if ($("[data-lang-menu]").hidden) openLangMenu();
+        else closeLangMenu();
     });
+    $("[data-lang-backdrop]").addEventListener("click", closeLangMenu);
 
     $("[data-market-toggle]").addEventListener("click", () => {
         marketExpanded = !marketExpanded;
@@ -1426,7 +1506,10 @@ function bindEvents() {
 
     $$("[data-close]").forEach((n) => n.addEventListener("click", () => closeSheet(n.closest(".sheet"))));
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeTopSheet();
+        if (e.key === "Escape") {
+            if (!$("[data-lang-menu]").hidden) closeLangMenu();
+            else closeTopSheet();
+        }
     });
 
     $("[data-get-signal]").addEventListener("click", requestSignal);
